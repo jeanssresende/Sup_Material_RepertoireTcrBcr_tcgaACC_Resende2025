@@ -1,18 +1,20 @@
 library(dplyr)
 library(textshape)
 library(IOBR)
+library(readr)    
+library(tibble)   
+library(corrplot) 
+library(ggplot2)  
+library(tidyr)  
 
-markers <- readxl::read_xlsx("markers.xlsx")
+markers <- readxl::read_xlsx("markers_TB.xlsx")
 head(markers)
 
 length(table(markers$marker))
 
 data_clones <- read.csv("../../6-dataExploration/df_data_clones.csv")
-#load("../../6-dataExploration/tcgaACC_pre_processed.RData")
 
-#data_tpm <- read.delim("../lymphocyteFraction/TCGA-ACC.star_tpm.tsv")
-
-eset_acc <- read.table("../lymphocyteFraction/TCGA-ACC.star_counts.tsv", header = T)
+eset_acc <- read.delim("../lymphocyteFraction/TCGA-ACC.star_tpm.tsv")
 
 ## -- anotacao e normalizacao em TPM
 
@@ -27,17 +29,9 @@ eset_acc_agg <- eset_acc %>%
 # Transformar Ensembl_ID em nomes de linha
 eset_acc_final <- column_to_rownames(eset_acc_agg, "Ensembl_ID")
 
-eset_acc_final <- (2^eset_acc_final)+1 # revertendo para a contagem original (pois estao em log2)
-eset_acc_final <- count2tpm(countMat = eset_acc_final, idType = "Ensembl", org = "hsa") 
-
 mat_tcgaACC <- eset_acc_final
 
-#mat_tcgaACC <- tcgaACC@assays@data$`HTSeq - Counts`
-#colnames(mat_tcgaACC) <- tcgaACC$barcode
-#rownames(mat_tcgaACC) <- tcgaACC@rowRanges$external_gene_name
-
-marker_TB <- c(unique(markers$marker), unique(markers$...2))
-marker_TB <- marker_TB[is.na(marker_TB)==F]
+marker_TB <- unique(markers$EnsemblGene)
 
 data <- mat_tcgaACC[rownames(mat_tcgaACC) %in% marker_TB,]
 data <- t(data)
@@ -60,40 +54,18 @@ data_TB <- cbind(data, data_clones_TB)
 
 head(data_TB)
 
-
-
-# 0. Instalar e carregar pacotes necessários (se ainda não o fez)
-# install.packages(c("readr", "dplyr", "tibble", "corrplot", "ggplot2", "tidyr")) # tidyr para pivot_longer/wider
-
-library(readr)    # Para leitura de dados
-library(dplyr)    # Para manipulação de dados
-library(tibble)   # Para manippar tibbles
-library(corrplot) # Para mapas de calor de correlação
-library(ggplot2)  # Para gráficos de dispersão (opcional)
-library(tidyr)    # Para pivot_longer/wider (se precisar reorganizar dados)
-
-# --- 1. Preparar o seu 'data_TB' ---
-# Assumindo que 'data_TB' já está carregado no seu ambiente R com a estrutura que você mostrou no 'head()'
-
-# Converter os nomes das linhas para uma coluna explícita (TCGA_Barcode)
-#data_TB <- data_TB %>%
-#  rownames_to_column("TCGA_Barcode")
-
+# --- 1. Preparar o 'data_TB' ---
 # Renomear a coluna de fenótipo para algo mais claro
 data_TB <- data_TB %>%
   rename(Steroid_Phenotype = steroid)
 
 # Identificar as colunas para marcadores e cadeias de TCR/BCR
-# Use os nomes exatos das colunas do seu data_TB
-marker_cols <- colnames(data_TB)[1:39] # Colunas 2 a 38 (ajuste se a 1a coluna for ID/Barcode)
-repertoire_cols <- colnames(data_TB)[40:46] # Colunas 39 a 45
+marker_cols <- colnames(data_TB)[1:58] # Colunas 2 a 38 (ajuste se a 1a coluna for ID/Barcode)
+repertoire_cols <- colnames(data_TB)[59:65] # Colunas 39 a 45
 
 # --- 2. Separar os dados por Fenótipo Esteroidal ---
 LSP_data <- data_TB %>% filter(Steroid_Phenotype == "Steroid_Low")
 HSP_data <- data_TB %>% filter(Steroid_Phenotype == "Steroid_High")
-
-#cat("Número de amostras LSP:", nrow(LSP_data), "\n")
-#cat("Número de amostras HSP:", nrow(HSP_data), "\n")
 
 # --- 3. Função Auxiliar para Calcular Correlação e P-valores (com correção) ---
 # Esta função encapsula o cálculo de correlação e p-valores ajustados
@@ -107,7 +79,7 @@ calculate_correlations <- function(df, marker_vars, repertoire_vars) {
   # (É importante fazer isso APENAS se os dados originais não estiverem transformados e tiverem zeros)
   # Verifique a natureza dos seus dados. Se forem já scores de deconvolução, talvez não precise.
   # Para expressão gênica crua e contagens de repertório, é geralmente recomendado.
-  df_markers_transformed <- df_markers %>% mutate(across(everything(), ~log2(.x + 1)))
+  df_markers_transformed <- df_markers #%>% mutate(across(everything(), ~log2(.x + 1)))
   df_repertoire_transformed <- df_repertoire %>% mutate(across(everything(), ~log2(.x + 1)))
   
   # Calcula a matriz de correlação de Spearman
@@ -155,16 +127,16 @@ cat("\nGerando heatmap para o grupo LSP...\n")
 corrplot(LSP_cor_results$cor,
          p.mat = LSP_cor_results$p_adj,
          sig.level = 0.05,
-         insig = "label_sig", # Deixa em branco correlações não significativas
+         insig = "label_sig", 
          method = "color",
-         type = "full",   # Mostra a matriz completa para correlação cruzada
+         type = "full",   
          tl.col = "black",
          tl.srt = 45,
-         tl.cex = 0.8,    # Tamanho do texto dos labels
-         cl.cex = 0.8,    # Tamanho do texto da barra de cores
+         tl.cex = 0.8,    
+         cl.cex = 0.8,    
          col = my_colors,
          title = "Correlações (Spearman) em ACC-LSP: Marcadores vs Repertório",
-         mar=c(0,0,3,0) # Ajusta margens para o título
+         mar=c(0,0,3,0) 
 )
 
 # Mapa de Calor para HSP
@@ -172,7 +144,7 @@ cat("\nGerando heatmap para o grupo HSP...\n")
 corrplot(HSP_cor_results$cor,
          p.mat = HSP_cor_results$p_adj,
          sig.level = 0.05,
-         insig = "label_sig", # Deixa em branco correlações não significativas
+         insig = "label_sig", 
          method = "color",
          type = "full",
          tl.col = "black",
@@ -181,29 +153,5 @@ corrplot(HSP_cor_results$cor,
          cl.cex = 0.8,
          col = my_colors,
          title = "Correlações (Spearman) em ACC-HSP: Marcadores vs Repertório",
-         mar=c(0,0,3,0) # Ajusta margens para o título
+         mar=c(0,0,3,0) 
 )
-
-
-# --- 6. (Opcional) Visualizar Gráficos de Dispersão para Correlacões Chave ---
-# Escolha um marcador e uma cadeia de repertório para visualizar o scatter plot
-# Exemplo: Correlação entre CD38 e IGH no LSP
-ggplot(LSP_data, aes(x = log2(CD19 + 1), y = log2(TRB + 1))) +
-  geom_point(alpha = 0.7) +
-  geom_smooth(method = "lm", se = FALSE, color = "blue") +
-  labs(title = "LSP: Correlação entre CD38 e IGH Abundância",
-       x = "Abundância de CD38 (log2 + 1)",
-       y = "Abundância de IGH (log2 + 1)") +
-  theme_minimal() +
-  ggpubr::stat_cor(method = "spearman", aes(label = paste(..r.label.., ..p.label.., sep = "\n"))) # Necessita install.packages("ggpubr")
-
-
-# Exemplo: Correlação entre CD38 e IGH no HSP
-ggplot(HSP_data, aes(x = log2(CD38 + 1), y = log2(IGH + 1))) +
-  geom_point(alpha = 0.7) +
-  geom_smooth(method = "lm", se = FALSE, color = "red") +
-  labs(title = "HSP: Correlação entre CD38 e IGH Abundância",
-       x = "Abundância de CD38 (log2 + 1)",
-       y = "Abundância de IGH (log2 + 1)") +
-  theme_minimal() +
-  ggpubr::stat_cor(method = "spearman", aes(label = paste(..r.label.., ..p.label.., sep = "\n")))
