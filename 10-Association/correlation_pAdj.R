@@ -72,18 +72,18 @@ data <- data.frame(
   Th1.Cells = tcgaACC$Th1.Cells,
   Th2.Cells = tcgaACC$Th2.Cells,
   Th17.Cells = tcgaACC$Th17.Cells,
-  Wound.Healing = tcgaACC$Wound.Healing,
+#  Wound.Healing = tcgaACC$Wound.Healing,
   IFN.gamma.Response = tcgaACC$IFN.gamma.Response,
   TGF.beta.Response = tcgaACC$TGF.beta.Response,
   Macrophage.Regulation = tcgaACC$Macrophage.Regulation,
-  Lymphocyte.Infiltration = tcgaACC$Lymphocyte.Infiltration.Signature.Score,
-  Nonsilent.Mutation.Rate = tcgaACC$Nonsilent.Mutation.Rate,
-  Silent.Mutation.Rate = tcgaACC$Silent.Mutation.Rate,
-  SNV.Neoantigens = tcgaACC$SNV.Neoantigens
+  Lymphocyte.Infiltration = tcgaACC$Lymphocyte.Infiltration.Signature.Score#,
+#  Nonsilent.Mutation.Rate = tcgaACC$Nonsilent.Mutation.Rate,
+#  Silent.Mutation.Rate = tcgaACC$Silent.Mutation.Rate,
+#  SNV.Neoantigens = tcgaACC$SNV.Neoantigens
 )
 
-idx <- match(data$barcode, data_purity$barcode)
-data$paper_purity <- as.numeric(data_purity$paper_purity[idx]) 
+#idx <- match(data$barcode, data_purity$barcode)
+#data$paper_purity <- as.numeric(data_purity$paper_purity[idx]) 
 
 # Abundancia
 idx <- match(rownames(data_abundance), metadata$file_id)
@@ -241,6 +241,10 @@ correlation_data_high <- data.frame(
   p.value = unlist(lapply(results_high, function(x) x$p.value))
 )
 
+correlation_data_low$p.value <- p.adjust(as.vector(correlation_data_low$p.value), method = "BH")
+correlation_data_high$p.value <- p.adjust(as.vector(correlation_data_high$p.value), method = "BH")
+
+
 # Crie rótulos de significância
 correlation_data$significance <- ifelse(correlation_data$p.value < 0.05, "*", "")
 correlation_data_low$significance <- ifelse(correlation_data_low$p.value < 0.05, "*", "")
@@ -281,9 +285,13 @@ variaveis_y <- c("TRD_Entropy","TRG_Entropy","TRB_Entropy","TRA_Entropy",
 
 variaveis_x <- c("Lymphocyte.Infiltration", "Macrophage.Regulation",
                  "TGF.beta.Response", "IFN.gamma.Response", "Th1.Cells", "Th17.Cells",
-                 "Th2.Cells", "Wound.Healing",
-                 "Nonsilent.Mutation.Rate", "Silent.Mutation.Rate",
-                 "SNV.Neoantigens", "paper_purity")
+                 "Th2.Cells")
+
+#variaveis_x <- c("Lymphocyte.Infiltration", "Macrophage.Regulation",
+#                 "TGF.beta.Response", "IFN.gamma.Response", "Th1.Cells", "Th17.Cells",
+#                 "Th2.Cells", "Wound.Healing",
+#                 "Nonsilent.Mutation.Rate", "Silent.Mutation.Rate",
+#                 "SNV.Neoantigens", "paper_purity")
 
 # Converta para fatores e defina a ordem
 plot_data$Var1 <- factor(plot_data$Var1, levels = variaveis_y)
@@ -300,8 +308,10 @@ plot_data <- plot_data[!is.na(plot_data$Var1),]
 plot_data <- plot_data[!is.na(plot_data$Var2),]
 
 plot_data_low <- plot_data_low[!is.na(plot_data_low$Var1),]
-plot_data_high <- plot_data_high[!is.na(plot_data_high$Var2),]
+plot_data_low <- plot_data_low[!is.na(plot_data_low$Var2),]
 
+plot_data_high <- plot_data_high[!is.na(plot_data_high$Var1),]
+plot_data_high <- plot_data_high[!is.na(plot_data_high$Var2),]
 
 # 4. Geração do Heatmap com ggplot2
 heatmap_plot  <- ggplot(plot_data, aes(x = Var2, y = Var1, fill = correlation)) +
@@ -321,7 +331,7 @@ heatmap_plot  <- ggplot(plot_data, aes(x = Var2, y = Var1, fill = correlation)) 
   coord_fixed()  # Garanta que as peças sejam quadradas
 
 # 5. Salvar o gráfico em um arquivo
-ggsave("heatmap_spearman_geral.pdf", plot = heatmap_plot, width = 6, height = 4, units = "in", dpi = 300)
+ggsave("heatmap_spearman_geral_20250715.pdf", plot = heatmap_plot, width = 6, height = 4, units = "in", dpi = 300)
 
 
 heatmap_plot_low  <- ggplot(plot_data_low, aes(x = Var2, y = Var1, fill = correlation)) +
@@ -341,7 +351,7 @@ heatmap_plot_low  <- ggplot(plot_data_low, aes(x = Var2, y = Var1, fill = correl
   coord_fixed()  # Garanta que as peças sejam quadradas
 
 # 5. Salvar o gráfico em um arquivo
-ggsave("heatmap_spearman_low.pdf", plot = heatmap_plot_low, width = 6, height = 4, units = "in", dpi = 300)
+ggsave("heatmap_spearman_low_20250715.pdf", plot = heatmap_plot_low, width = 6, height = 4, units = "in", dpi = 300)
 
 
 heatmap_plot_high  <- ggplot(plot_data_high, aes(x = Var2, y = Var1, fill = correlation)) +
@@ -361,5 +371,5 @@ heatmap_plot_high  <- ggplot(plot_data_high, aes(x = Var2, y = Var1, fill = corr
   coord_fixed()  # Garanta que as peças sejam quadradas
 
 # 5. Salvar o gráfico em um arquivo
-ggsave("heatmap_spearman_high.pdf", plot = heatmap_plot_high, width = 6, height = 4, units = "in", dpi = 300)
+ggsave("heatmap_spearman_high_20250715.pdf", plot = heatmap_plot_high, width = 6, height = 4, units = "in", dpi = 300)
 
